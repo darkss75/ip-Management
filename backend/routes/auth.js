@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
         // 간단한 하드코딩된 인증 (Vercel 호환성을 위해)
         if (username === 'aldis' && password === 'aldis1201!') {
             const token = 'simple_token_' + Date.now(); // 간단한 토큰
-            
+
             res.json({
                 token,
                 user: {
@@ -56,8 +56,8 @@ router.get('/validate', (req, res) => {
 
     // 간단한 토큰 검증 (실제 운영에서는 JWT 사용 권장)
     if (token.startsWith('simple_token_')) {
-        res.json({ 
-            valid: true, 
+        res.json({
+            valid: true,
             user: { id: 1, username: 'aldis', role: 'admin' }
         });
     } else {

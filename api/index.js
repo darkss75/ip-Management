@@ -1,65 +1,148 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+// 통합 API 핸들러
+const url = require('url');
 
-// Import routes
-const authRoutes = require('../backend/routes/auth');
-const countryRoutes = require('../backend/routes/countries');
-const ipRoutes = require('../backend/routes/ips');
+// 메모리 데이터 저장소
+const countries = [
+    { _id: '1', name: 'United States', nameKo: '미국', code: 'US', flag: '🇺🇸', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '2', name: 'Netherlands', nameKo: '네덜란드', code: 'NL', flag: '🇳🇱', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '3', name: 'Germany', nameKo: '독일', code: 'DE', flag: '🇩🇪', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '4', name: 'United Kingdom', nameKo: '영국', code: 'GB', flag: '🇬🇧', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '5', name: 'Switzerland', nameKo: '스위스', code: 'CH', flag: '🇨🇭', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '6', name: 'France', nameKo: '프랑스', code: 'FR', flag: '🇫🇷', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '7', name: 'Canada', nameKo: '캐나다', code: 'CA', flag: '🇨🇦', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '8', name: 'Japan', nameKo: '일본', code: 'JP', flag: '🇯🇵', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '9', name: 'Sweden', nameKo: '스웨덴', code: 'SE', flag: '🇸🇪', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '10', name: 'Norway', nameKo: '노르웨이', code: 'NO', flag: '🇳🇴', blockedIPCount: 0, isFavorite: false, isActive: true },
+    { _id: '38', name: 'South Korea', nameKo: '한국', code: 'KR', flag: '🇰🇷', blockedIPCount: 0, isFavorite: true, isActive: true }
+];
 
-const app = express();
+let blockedIPs = [];
+let idCounter = 1;
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-}));
+module.exports = async (req, res) => {
+    // CORS 헤더 설정
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true
-}));
+    // OPTIONS 요청 처리
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use(limiter);
+    try {
+        const parsedUrl = url.parse(req.url, true);
+        const pathname = parsedUrl.pathname;
+        const query = parsedUrl.query;
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+        console.log('API Request:', { method: req.method, pathname, query });
 
-// Using in-memory storage instead of MongoDB
-console.log('Using in-memory data storage (no MongoDB required)');
+        // 인증 API
+        if (pathname === '/api/auth') {
+            if (req.method === 'POST') {
+                const { username, password } = req.body;
 
-// Routes (Vercel에서는 /api 경로가 자동으로 추가되므로 중복 제거)
-app.use('/auth', authRoutes);
-app.use('/countries', countryRoutes);
-app.use('/ips', ipRoutes);
+                if (!username || !password) {
+                    return res.status(400).json({ error: 'Username and password required' });
+                }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+                if (username === 'aldis' && password === 'aldis1201!') {
+                    const token = 'simple_token_' + Date.now();
+                    return res.status(200).json({
+                        token,
+                        user: { id: 1, username: 'aldis', role: 'admin' }
+                    });
+                } else {
+                    return res.status(401).json({ error: 'Invalid credentials' });
+                }
+            }
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
-});
+            if (req.method === 'GET') {
+                const authHeader = req.headers['authorization'];
+                const token = authHeader && authHeader.split(' ')[1];
 
-// Export the Express API
-module.exports = app;
+                if (!token || !token.startsWith('simple_token_')) {
+                    return res.status(401).json({ valid: false });
+                }
+
+                return res.status(200).json({ 
+                    valid: true, 
+                    user: { id: 1, username: 'aldis', role: 'admin' }
+                });
+            }
+        }
+
+        // 국가 API
+        if (pathname === '/api/countries') {
+            if (req.method === 'GET') {
+                const sortedCountries = countries.sort((a, b) => {
+                    if (a.isFavorite && !b.isFavorite) return -1;
+                    if (!a.isFavorite && b.isFavorite) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+                return res.status(200).json(sortedCountries);
+            }
+        }
+
+        // IP API
+        if (pathname === '/api/ips') {
+            if (req.method === 'GET') {
+                let result = blockedIPs.filter(ip => ip.isActive);
+                
+                if (query.countryCode) {
+                    result = result.filter(ip => ip.countryCode === query.countryCode.toUpperCase());
+                }
+                
+                result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                return res.status(200).json(result);
+            }
+
+            if (req.method === 'POST') {
+                const { countryCode, serverNumber, ipAddress } = req.body;
+
+                if (!countryCode || !serverNumber) {
+                    return res.status(400).json({ error: 'Country code and server number required' });
+                }
+
+                const newIP = {
+                    _id: (idCounter++).toString(),
+                    countryCode: countryCode.toUpperCase(),
+                    serverName: `${countryCode.toUpperCase()}#${serverNumber}`,
+                    ipAddress: ipAddress || '',
+                    severity: 'medium',
+                    reason: 'Manual block',
+                    isActive: true,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+
+                blockedIPs.push(newIP);
+                return res.status(201).json(newIP);
+            }
+
+            if (req.method === 'DELETE') {
+                const { id } = query;
+                
+                const index = blockedIPs.findIndex(ip => ip._id === id);
+                if (index !== -1) {
+                    blockedIPs[index].isActive = false;
+                    return res.status(200).json({ message: 'IP deleted successfully' });
+                } else {
+                    return res.status(404).json({ error: 'IP not found' });
+                }
+            }
+        }
+
+        // Health check
+        if (pathname === '/api/health') {
+            return res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+        }
+
+        // 404
+        return res.status(404).json({ error: 'Not found' });
+
+    } catch (error) {
+        console.error('API Error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};

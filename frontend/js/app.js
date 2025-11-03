@@ -62,7 +62,7 @@ class IPManagementApp {
         const password = document.getElementById('password').value;
 
         try {
-            const response = await fetch(`${this.baseURL}/auth/login`, {
+            const response = await fetch(`${this.baseURL}/auth`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -90,7 +90,7 @@ class IPManagementApp {
 
     async validateToken() {
         try {
-            const response = await fetch(`${this.baseURL}/auth/validate`, {
+            const response = await fetch(`${this.baseURL}/auth`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
