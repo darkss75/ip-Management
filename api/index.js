@@ -1,20 +1,9 @@
 // 통합 API 핸들러
 const url = require('url');
 
-// 메모리 데이터 저장소
-const countries = [
-    { _id: '1', name: 'United States', nameKo: '미국', code: 'US', flag: '🇺🇸', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '2', name: 'Netherlands', nameKo: '네덜란드', code: 'NL', flag: '🇳🇱', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '3', name: 'Germany', nameKo: '독일', code: 'DE', flag: '🇩🇪', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '4', name: 'United Kingdom', nameKo: '영국', code: 'GB', flag: '🇬🇧', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '5', name: 'Switzerland', nameKo: '스위스', code: 'CH', flag: '🇨🇭', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '6', name: 'France', nameKo: '프랑스', code: 'FR', flag: '🇫🇷', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '7', name: 'Canada', nameKo: '캐나다', code: 'CA', flag: '🇨🇦', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '8', name: 'Japan', nameKo: '일본', code: 'JP', flag: '🇯🇵', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '9', name: 'Sweden', nameKo: '스웨덴', code: 'SE', flag: '🇸🇪', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '10', name: 'Norway', nameKo: '노르웨이', code: 'NO', flag: '🇳🇴', blockedIPCount: 0, isFavorite: false, isActive: true },
-    { _id: '38', name: 'South Korea', nameKo: '한국', code: 'KR', flag: '🇰🇷', blockedIPCount: 0, isFavorite: true, isActive: true }
-];
+// 메모리 데이터 저장소 (Vercel 기본 목록 재사용)
+const vercelStore = require('../backend/data/vercelStore');
+const countries = vercelStore.getDefaultCountries();
 
 let blockedIPs = [];
 let idCounter = 1;
