@@ -19,6 +19,30 @@ const countries = [
 let blockedIPs = [];
 let idCounter = 1;
 
+async function parseJsonBody(req) {
+    if (req.body) return req.body;
+    return await new Promise((resolve) => {
+        let data = '';
+        req.on('data', chunk => { data += chunk; });
+        req.on('end', () => {
+            try {
+                resolve(data ? JSON.parse(data) : {});
+            } catch (e) {
+                resolve({});
+            }
+        });
+    });
+}
+
+function updateCountryBlockedCount(countryCode) {
+    const cc = (countryCode || '').toUpperCase();
+    const country = countries.find(c => c.code === cc);
+    if (country) {
+        country.blockedIPCount = blockedIPs.filter(ip => ip.countryCode === cc && ip.isActive).length;
+        country.updatedAt = new Date();
+    }
+}
+
 module.exports = async (req, res) => {
     // CORS 헤더 설정
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -40,7 +64,8 @@ module.exports = async (req, res) => {
         // 인증 API
         if (pathname === '/api/auth') {
             if (req.method === 'POST') {
-                const { username, password } = req.body;
+                const body = await parseJsonBody(req);
+                const { username, password } = body;
 
                 if (!username || !password) {
                     return res.status(400).json({ error: 'Username and password required' });
@@ -72,42 +97,70 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 국가 API
-        if (pathname === '/api/countries') {
-            if (req.method === 'GET') {
-                const sortedCountries = countries.sort((a, b) => {
-                    if (a.isFavorite && !b.isFavorite) return -1;
-                    if (!a.isFavorite && b.isFavorite) return 1;
-                    return a.name.localeCompare(b.name);
-                });
-                return res.status(200).json(sortedCountries);
-            }
+        // 국가 초기화 (프런트에서 호출)
+        if (pathname === '/api/countries/initialize' && req.method === 'POST') {
+            return res.status(200).json({ message: 'Countries already initialized' });
         }
 
-        // IP API
+        // 국가 즐겨찾기 토글
+        if (pathname.startsWith('/api/countries/') && pathname.endsWith('/favorite') && req.method === 'PUT') {
+            const parts = pathname.split('/');
+            const code = decodeURIComponent(parts[3] || '').toUpperCase();
+            const country = countries.find(c => c.code === code);
+            if (!country) {
+                return res.status(404).json({ error: 'Country not found' });
+            }
+            country.isFavorite = !country.isFavorite;
+            country.updatedAt = new Date();
+            return res.status(200).json({ 
+                message: country.isFavorite ? 'Added to favorites' : 'Removed from favorites',
+                country 
+            });
+        }
+
+        // 국가 목록
+        if (pathname === '/api/countries' && req.method === 'GET') {
+            const sortedCountries = countries.sort((a, b) => {
+                if (a.isFavorite && !b.isFavorite) return -1;
+                if (!a.isFavorite && b.isFavorite) return 1;
+                return a.name.localeCompare(b.name);
+            });
+            return res.status(200).json(sortedCountries);
+        }
+
+        // 국가별 IP 목록
+        if (pathname.startsWith('/api/ips/country/') && req.method === 'GET') {
+            const parts = pathname.split('/');
+            const countryCode = decodeURIComponent(parts[4] || '').toUpperCase();
+            const ips = blockedIPs
+                .filter(ip => ip.isActive && ip.countryCode === countryCode)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return res.status(200).json({ ips, pagination: { page: 1, limit: ips.length, total: ips.length, pages: 1 } });
+        }
+
+        // IP 생성/조회
         if (pathname === '/api/ips') {
             if (req.method === 'GET') {
                 let result = blockedIPs.filter(ip => ip.isActive);
-                
                 if (query.countryCode) {
                     result = result.filter(ip => ip.countryCode === query.countryCode.toUpperCase());
                 }
-                
                 result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 return res.status(200).json(result);
             }
 
             if (req.method === 'POST') {
-                const { countryCode, serverNumber, ipAddress } = req.body;
+                const body = await parseJsonBody(req);
+                const { countryCode, serverName, ipAddress } = body || {};
 
-                if (!countryCode || !serverNumber) {
-                    return res.status(400).json({ error: 'Country code and server number required' });
+                if (!countryCode || !serverName) {
+                    return res.status(400).json({ error: 'Country code and server name required' });
                 }
 
                 const newIP = {
                     _id: (idCounter++).toString(),
                     countryCode: countryCode.toUpperCase(),
-                    serverName: `${countryCode.toUpperCase()}#${serverNumber}`,
+                    serverName: serverName,
                     ipAddress: ipAddress || '',
                     severity: 'medium',
                     reason: 'Manual block',
@@ -117,19 +170,24 @@ module.exports = async (req, res) => {
                 };
 
                 blockedIPs.push(newIP);
+                updateCountryBlockedCount(countryCode);
                 return res.status(201).json(newIP);
             }
+        }
 
-            if (req.method === 'DELETE') {
-                const { id } = query;
-                
-                const index = blockedIPs.findIndex(ip => ip._id === id);
-                if (index !== -1) {
-                    blockedIPs[index].isActive = false;
-                    return res.status(200).json({ message: 'IP deleted successfully' });
-                } else {
-                    return res.status(404).json({ error: 'IP not found' });
-                }
+        // IP 삭제 (경로 파라미터)
+        if (pathname.startsWith('/api/ips/') && req.method === 'DELETE') {
+            const parts = pathname.split('/');
+            const id = decodeURIComponent(parts[3] || '');
+            const index = blockedIPs.findIndex(ip => ip._id === id);
+            if (index !== -1) {
+                const countryCode = blockedIPs[index].countryCode;
+                blockedIPs[index].isActive = false;
+                blockedIPs[index].updatedAt = new Date();
+                updateCountryBlockedCount(countryCode);
+                return res.status(200).json({ message: 'IP deleted successfully' });
+            } else {
+                return res.status(404).json({ error: 'IP not found' });
             }
         }
 
