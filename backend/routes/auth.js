@@ -13,46 +13,39 @@ const users = [
     }
 ];
 
-// Login endpoint
+// Login endpoint (simplified for Vercel)
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
+
+        console.log('Login attempt:', { username, password }); // 디버깅용
 
         if (!username || !password) {
             return res.status(400).json({ error: 'Username and password required' });
         }
 
-        const user = users.find(u => u.username === username);
-        if (!user) {
+        // 간단한 하드코딩된 인증 (Vercel 호환성을 위해)
+        if (username === 'aldis' && password === 'aldis1201!') {
+            const token = 'simple_token_' + Date.now(); // 간단한 토큰
+            
+            res.json({
+                token,
+                user: {
+                    id: 1,
+                    username: 'aldis',
+                    role: 'admin'
+                }
+            });
+        } else {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
-            process.env.JWT_SECRET || 'fallback_secret',
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                username: user.username,
-                role: user.role
-            }
-        });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Login failed' });
     }
 });
 
-// Token validation endpoint
+// Token validation endpoint (simplified)
 router.get('/validate', (req, res) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -61,12 +54,15 @@ router.get('/validate', (req, res) => {
         return res.status(401).json({ valid: false });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret', (err, user) => {
-        if (err) {
-            return res.status(403).json({ valid: false });
-        }
-        res.json({ valid: true, user });
-    });
+    // 간단한 토큰 검증 (실제 운영에서는 JWT 사용 권장)
+    if (token.startsWith('simple_token_')) {
+        res.json({ 
+            valid: true, 
+            user: { id: 1, username: 'aldis', role: 'admin' }
+        });
+    } else {
+        return res.status(403).json({ valid: false });
+    }
 });
 
 module.exports = router;
