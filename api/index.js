@@ -5,6 +5,38 @@ const url = require('url');
 const vercelStore = require('../backend/data/vercelStore');
 const countries = vercelStore.getDefaultCountries();
 
+// Blob 설정
+const BLOCKED_IPS_BLOB_PATH = 'blocked-ips.json';
+
+async function loadBlockedIPsFromBlob() {
+	try {
+		const { list } = await import('@vercel/blob');
+		const result = await list();
+		const item = result.blobs?.find(b => b.pathname === BLOCKED_IPS_BLOB_PATH);
+		if (!item || !item.url) return [];
+		const resp = await fetch(item.url);
+		if (!resp.ok) return [];
+		const data = await resp.json();
+		return Array.isArray(data) ? data : [];
+	} catch (e) {
+		console.error('Blob load error:', e);
+		return [];
+	}
+}
+
+async function saveBlockedIPsToBlob(data) {
+	try {
+		const { put } = await import('@vercel/blob');
+		await put(BLOCKED_IPS_BLOB_PATH, JSON.stringify(data), {
+			access: 'public',
+			contentType: 'application/json',
+			addRandomSuffix: false
+		});
+	} catch (e) {
+		console.error('Blob save error:', e);
+	}
+}
+
 let blockedIPs = [];
 let idCounter = 1;
 
@@ -117,7 +149,7 @@ module.exports = async (req, res) => {
             return res.status(200).json(sortedCountries);
         }
 
-        // 국가별 IP 목록
+		// 국가별 IP 목록
         if (pathname.startsWith('/api/ips/country/') && req.method === 'GET') {
             const parts = pathname.split('/');
             const countryCode = decodeURIComponent(parts[4] || '').toUpperCase();
@@ -130,7 +162,14 @@ module.exports = async (req, res) => {
         // IP 생성/조회
         if (pathname === '/api/ips') {
             if (req.method === 'GET') {
-                let result = blockedIPs.filter(ip => ip.isActive);
+				// 최초 접근 시 Blob에서 로드(메모리 비어있을 때)
+				if (!blockedIPs || blockedIPs.length === 0) {
+					blockedIPs = await loadBlockedIPsFromBlob();
+					// 로드 후 국가별 카운트 갱신
+					const codes = [...new Set(blockedIPs.map(i => i.countryCode))];
+					codes.forEach(updateCountryBlockedCount);
+				}
+				let result = blockedIPs.filter(ip => ip.isActive);
                 if (query.countryCode) {
                     result = result.filter(ip => ip.countryCode === query.countryCode.toUpperCase());
                 }
@@ -160,6 +199,7 @@ module.exports = async (req, res) => {
 
                 blockedIPs.push(newIP);
                 updateCountryBlockedCount(countryCode);
+				await saveBlockedIPsToBlob(blockedIPs);
                 return res.status(201).json(newIP);
             }
         }
@@ -174,6 +214,7 @@ module.exports = async (req, res) => {
                 blockedIPs[index].isActive = false;
                 blockedIPs[index].updatedAt = new Date();
                 updateCountryBlockedCount(countryCode);
+				await saveBlockedIPsToBlob(blockedIPs);
                 return res.status(200).json({ message: 'IP deleted successfully' });
             } else {
                 return res.status(404).json({ error: 'IP not found' });
