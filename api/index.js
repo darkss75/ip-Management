@@ -42,13 +42,13 @@ app.use(express.urlencoded({ extended: true }));
 // Using in-memory storage instead of MongoDB
 console.log('Using in-memory data storage (no MongoDB required)');
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/countries', countryRoutes);
-app.use('/api/ips', ipRoutes);
+// Routes (Vercel에서는 /api 경로가 자동으로 추가되므로 중복 제거)
+app.use('/auth', authRoutes);
+app.use('/countries', countryRoutes);
+app.use('/ips', ipRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
