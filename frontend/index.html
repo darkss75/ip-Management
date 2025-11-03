@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-shield-alt"></i> IP Management System</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">사용자명</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> 로그인
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app-container" style="display: none;">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-shield-alt"></i> IP Management System</h1>
+                <div class="header-actions">
+                    <span class="user-info">
+                        <i class="fas fa-user"></i> <span id="currentUser"></span>
+                    </span>
+                    <button id="logoutBtn" class="btn btn-secondary">
+                        <i class="fas fa-sign-out-alt"></i> 로그아웃
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-container">
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- 서버 추가 폼 -->
+                <div class="add-server-section">
+                    <h3><i class="fas fa-plus"></i> 서버 추가</h3>
+                    <form id="ipForm" class="inline-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <select id="countrySelect" name="countryCode" required>
+                                    <option value="">국가 선택</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <div class="server-name-input">
+                                    <input type="text" id="serverPrefix" class="server-prefix" readonly placeholder="국가#">
+                                    <input type="text" id="serverNumber" name="serverNumber" placeholder="번호" maxlength="4" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="ipAddress" name="ipAddress" placeholder="IP 주소 (선택)">
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> 추가
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 국가 선택 및 IP 목록 -->
+                <div class="main-grid">
+                    <!-- 국가 선택 -->
+                    <div class="country-selector">
+                        <h3><i class="fas fa-globe"></i> 국가 선택</h3>
+                        <div id="countriesList" class="countries-grid">
+                            <div class="loading">국가 목록을 불러오는 중...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- IP 목록 (메인 영역) -->
+                    <div class="ip-viewer">
+                        <div class="ip-viewer-header">
+                            <h3><i class="fas fa-list"></i> <span id="selectedCountryName">차단된 IP 목록</span></h3>
+                        </div>
+                        
+                        <div id="ipListContainer" class="ip-list-container">
+                            <div class="empty-state">
+                                <i class="fas fa-globe-americas"></i>
+                                <p>국가를 선택하면 해당 국가의 차단된 IP 목록을 확인할 수 있습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: ip_management_db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: ip_management
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - ip_management_network
+
+  app:
+    build: .
+    container_name: ip_management_app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/ip_management?authSource=admin
+      JWT_SECRET: your_super_secret_jwt_key_change_in_production
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - ip_management_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: ip_management_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - ip_management_network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  ip_management_network:
+    driver: bridge
